@@ -1,0 +1,46 @@
+api_version = "2024-10"
+
+[[extensions]]
+name = "PLP Banner Injector"
+handle = "plp-banner-injector"
+type = "theme"
+
+  [extensions.settings]
+    [[extensions.settings.fields]]
+      key = "grid_selector"
+      type = "text"
+      name = "Product grid CSS selector"
+      default = ".collection-product-list, .grid--collection, [data-collection-products], .product-grid, .collection .grid"
+
+    [[extensions.settings.fields]]
+      key = "product_selector"
+      type = "text"
+      name = "Product item CSS selector"
+      default = ".grid__item, .product-card, .grid-product, .product-grid-item"
+
+    [[extensions.settings.fields]]
+      key = "desktop_columns"
+      type = "range"
+      name = "Desktop columns"
+      min = 2
+      max = 6
+      step = 1
+      default = 4
+
+    [[extensions.settings.fields]]
+      key = "tablet_columns"
+      type = "range"
+      name = "Tablet columns"
+      min = 2
+      max = 4
+      step = 1
+      default = 3
+
+    [[extensions.settings.fields]]
+      key = "mobile_columns"
+      type = "range"
+      name = "Mobile columns"
+      min = 1
+      max = 2
+      step = 1
+      default = 2

@@ -1,0 +1,163 @@
+{% comment %}
+  PLP Banner Injector - App Embed Block
+  This block loads on collection pages and injects promotional banners
+  into the product grid at configured positions.
+{% endcomment %}
+
+{% if template contains 'collection' %}
+  <style>
+    .plp-banner-tile {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      text-decoration: none;
+      color: inherit;
+      min-height: 100%;
+      box-sizing: border-box;
+    }
+    .plp-banner-tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .plp-banner-tile__image {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .plp-banner-tile__image--mobile {
+      display: none;
+    }
+    .plp-banner-tile__content {
+      position: relative;
+      z-index: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .plp-banner-tile__title {
+      font-size: 1.2em;
+      font-weight: 700;
+      line-height: 1.3;
+      margin: 0;
+    }
+    .plp-banner-tile__subtitle {
+      font-size: 0.9em;
+      opacity: 0.85;
+      margin: 0;
+    }
+    .plp-banner-tile__cta {
+      display: inline-block;
+      padding: 8px 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      border-radius: 4px;
+      font-size: 0.85em;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+      transition: background 0.2s ease;
+    }
+    .plp-banner-tile:hover .plp-banner-tile__cta {
+      background: rgba(0, 0, 0, 1);
+    }
+    /* 2x1 tile takes two columns */
+    .plp-banner-tile--2x1 {
+      grid-column: span 2;
+    }
+    /* 2x2 tile takes two columns and two rows */
+    .plp-banner-tile--2x2 {
+      grid-column: span 2;
+      grid-row: span 2;
+    }
+    @media (max-width: 749px) {
+      .plp-banner-tile__image--desktop {
+        display: none;
+      }
+      .plp-banner-tile__image--mobile {
+        display: block;
+      }
+      /* On mobile, 2x1 and 2x2 may span fewer columns */
+      .plp-banner-tile--2x1,
+      .plp-banner-tile--2x2 {
+        grid-column: span 2;
+      }
+    }
+  </style>
+
+  <script
+    src="{{ 'plp-banner-injector.js' | asset_url }}"
+    defer
+    data-shop="{{ shop.permanent_domain }}"
+    data-collection-id="{{ collection.id }}"
+    data-collection-handle="{{ collection.handle }}"
+    data-grid-selector="{{ block.settings.grid_selector }}"
+    data-product-selector="{{ block.settings.product_selector }}"
+    data-desktop-columns="{{ block.settings.desktop_columns }}"
+    data-tablet-columns="{{ block.settings.tablet_columns }}"
+    data-mobile-columns="{{ block.settings.mobile_columns }}"
+    data-app-proxy-url="/apps/plp-banners"
+  ></script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "PLP Banner Injector",
+  "target": "head",
+  "javascript": "plp-banner-injector.js",
+  "stylesheet": "",
+  "settings": [
+    {
+      "type": "text",
+      "id": "grid_selector",
+      "label": "Product grid CSS selector",
+      "default": ".collection-product-list, .grid--collection, [data-collection-products], .product-grid, .collection .grid"
+    },
+    {
+      "type": "text",
+      "id": "product_selector",
+      "label": "Product item CSS selector",
+      "default": ".grid__item, .product-card, .grid-product, .product-grid-item"
+    },
+    {
+      "type": "range",
+      "id": "desktop_columns",
+      "label": "Desktop columns",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "tablet_columns",
+      "label": "Tablet columns",
+      "min": 2,
+      "max": 4,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "mobile_columns",
+      "label": "Mobile columns",
+      "min": 1,
+      "max": 2,
+      "step": 1,
+      "default": 2
+    }
+  ]
+}
+{% endschema %}

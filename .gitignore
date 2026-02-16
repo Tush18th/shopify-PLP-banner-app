@@ -1,0 +1,10 @@
+node_modules/
+build/
+.cache/
+.env
+.env.local
+*.db
+dist/
+.shopify/
+coverage/
+.DS_Store
