@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Session storage for Shopify App
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+// Shops that have installed the app
+model Shop {
+  id        Int      @id @default(autoincrement())
+  domain    String   @unique // e.g. "my-store.myshopify.com"
+  name      String?
+  timezone  String   @default("UTC")
+  currency  String   @default("USD")
+  plan      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  banners Banner[]
+
+  @@index([domain])
+}
+
+enum BannerStatus {
+  DRAFT
+  ACTIVE
+  SCHEDULED
+  PAUSED
+  EXPIRED
+}
+
+enum TileSize {
+  SIZE_1x1 // Takes one product tile space
+  SIZE_2x1 // Takes two columns, one row
+  SIZE_2x2 // Takes two columns, two rows
+}
+
+enum PlacementType {
+  AFTER_INDEX   // Insert after a specific product index
+  AFTER_ROW     // Insert after a specific row number
+}
+
+enum TargetType {
+  COLLECTION
+  TAG
+  VENDOR
+  PRODUCT_TYPE
+}
+
+model Banner {
+  id              Int          @id @default(autoincrement())
+  shopId          Int
+  shop            Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  // Core fields
+  name            String
+  status          BannerStatus @default(DRAFT)
+  priority        Int          @default(0)
+
+  // Creative
+  title           String?
+  subtitle        String?
+  desktopImageUrl String?
+  mobileImageUrl  String?
+  backgroundColor String       @default("#ffffff")
+
+  // CTA
+  ctaText         String?
+  ctaLink         String?
+  openInNewTab    Boolean      @default(false)
+
+  // Tile sizing
+  tileSize        TileSize     @default(SIZE_1x1)
+
+  // Scheduling
+  startDate       DateTime?
+  endDate         DateTime?
+
+  // Timestamps
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  placements      BannerPlacement[]
+  targetingRules  BannerTargetingRule[]
+  analytics       BannerAnalyticsDaily[]
+
+  @@index([shopId, status])
+  @@index([status, startDate, endDate])
+}
+
+model BannerPlacement {
+  id            Int           @id @default(autoincrement())
+  bannerId      Int
+  banner        Banner        @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+
+  placementType PlacementType
+  position      Int           // The index or row number
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([bannerId])
+}
+
+model BannerTargetingRule {
+  id         Int        @id @default(autoincrement())
+  bannerId   Int
+  banner     Banner     @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+
+  targetType TargetType
+  value      String     // The collection ID, tag name, vendor name, or product type
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([bannerId])
+  @@index([targetType, value])
+}
+
+model BannerAnalyticsDaily {
+  id          Int      @id @default(autoincrement())
+  bannerId    Int
+  banner      Banner   @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+
+  date        DateTime @db.Date
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bannerId, date])
+  @@index([bannerId, date])
+  @@index([date])
+}
