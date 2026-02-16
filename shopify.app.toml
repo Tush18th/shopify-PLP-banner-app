@@ -1,9 +1,15 @@
 # Shopify PLP Banner App Configuration
 # Learn more: https://shopify.dev/docs/apps/tools/cli/configuration
+#
+# SETUP: Replace all values below with your actual Shopify Partner app credentials.
+# 1. Create an app at https://partners.shopify.com → Apps → Create app
+# 2. Copy the Client ID from the app overview page
+# 3. Set application_url to your deployed domain (or ngrok URL for dev)
+# 4. Configure the App Proxy in Partner Dashboard → App setup → App proxy
 
 name = "PLP Banner Manager"
-client_id = "REPLACE_WITH_YOUR_CLIENT_ID"
-application_url = "https://your-app-domain.com"
+client_id = "YOUR_CLIENT_ID_FROM_PARTNER_DASHBOARD"
+application_url = "https://YOUR_APP_DOMAIN.com"
 embedded = true
 
 [access_scopes]
@@ -11,21 +17,31 @@ scopes = "read_products,read_themes,write_themes"
 
 [auth]
 redirect_urls = [
-  "https://your-app-domain.com/auth/callback",
-  "https://your-app-domain.com/auth/shopify/callback",
-  "https://your-app-domain.com/api/auth/callback"
+  "https://YOUR_APP_DOMAIN.com/auth/callback",
+  "https://YOUR_APP_DOMAIN.com/auth/shopify/callback",
+  "https://YOUR_APP_DOMAIN.com/api/auth/callback"
 ]
 
 [webhooks]
 api_version = "2024-10"
 
+  [webhooks.subscriptions]
+
+    [[webhooks.subscriptions.topics]]
+    topics = ["app/uninstalled"]
+    uri = "/webhooks"
+
+    [[webhooks.subscriptions.topics]]
+    topics = ["shop/update"]
+    uri = "/webhooks"
+
   [webhooks.privacy_compliance]
-  customer_deletion_url = "https://your-app-domain.com/webhooks/customers/redact"
-  customer_data_request_url = "https://your-app-domain.com/webhooks/customers/data-request"
-  shop_deletion_url = "https://your-app-domain.com/webhooks/shop/redact"
+  customer_deletion_url = "https://YOUR_APP_DOMAIN.com/webhooks"
+  customer_data_request_url = "https://YOUR_APP_DOMAIN.com/webhooks"
+  shop_deletion_url = "https://YOUR_APP_DOMAIN.com/webhooks"
 
 [app_proxy]
-url = "https://your-app-domain.com/api/storefront"
+url = "https://YOUR_APP_DOMAIN.com/api/storefront"
 subpath = "plp-banners"
 prefix = "apps"
 
@@ -34,4 +50,4 @@ embedded = false
 
 [build]
 automatically_update_urls_on_dev = true
-dev_store_url = "your-dev-store.myshopify.com"
+dev_store_url = "YOUR_DEV_STORE.myshopify.com"

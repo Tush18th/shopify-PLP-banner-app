@@ -1,12 +1,14 @@
 import { json } from "@remix-run/node";
-import crypto from "crypto";
 import { recordImpression, recordClick } from "../models/analytics.server";
 import { checkRateLimit } from "../utils/rate-limiter.server";
+import { verifyAppProxyHmac } from "../utils/hmac.server";
+import prisma from "../db.server";
 
 /**
- * Public analytics tracking endpoint.
+ * Analytics tracking endpoint served via Shopify App Proxy.
  * POST /apps/plp-banners/api/storefront/track
  *
+ * Requires valid Shopify App Proxy HMAC signature.
  * Body: { bannerId: number, event: "impression" | "click" }
  */
 export const action = async ({ request }) => {
@@ -14,13 +16,25 @@ export const action = async ({ request }) => {
     return json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  // Rate limiting - stricter for tracking
+  const url = new URL(request.url);
+
+  // ── 1. Rate limiting (stricter: 60 req/min for tracking) ──────────────
   const clientIp = request.headers.get("x-forwarded-for") || "unknown";
-  const { limited } = checkRateLimit(`track:${clientIp}`);
+  const { limited } = await checkRateLimit(`track:${clientIp}`, {
+    windowMs: 60_000,
+    maxRequests: 60,
+  });
   if (limited) {
     return json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
+  // ── 2. Mandatory HMAC verification ────────────────────────────────────
+  const { valid, shop } = verifyAppProxyHmac(url);
+  if (!valid || !shop) {
+    return json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ── 3. Parse and validate body ────────────────────────────────────────
   let body;
   try {
     body = await request.json();
@@ -30,8 +44,7 @@ export const action = async ({ request }) => {
 
   const { bannerId, event } = body;
 
-  // Validate inputs
-  if (!bannerId || typeof bannerId !== "number" || bannerId < 1) {
+  if (!bannerId || typeof bannerId !== "number" || !Number.isInteger(bannerId) || bannerId < 1) {
     return json({ error: "Invalid bannerId" }, { status: 400 });
   }
 
@@ -39,6 +52,22 @@ export const action = async ({ request }) => {
     return json({ error: "Invalid event type" }, { status: 400 });
   }
 
+  // ── 4. Verify banner belongs to the authenticated shop ────────────────
+  const shopRecord = await prisma.shop.findUnique({
+    where: { domain: shop },
+  });
+  if (!shopRecord) {
+    return json({ error: "Shop not found" }, { status: 404 });
+  }
+
+  const banner = await prisma.banner.findFirst({
+    where: { id: bannerId, shopId: shopRecord.id },
+  });
+  if (!banner) {
+    return json({ error: "Banner not found for this shop" }, { status: 404 });
+  }
+
+  // ── 5. Record the event ───────────────────────────────────────────────
   try {
     if (event === "impression") {
       await recordImpression(bannerId);
@@ -46,31 +75,14 @@ export const action = async ({ request }) => {
       await recordClick(bannerId);
     }
   } catch (err) {
-    // Don't expose internal errors to storefront
     console.error("Analytics tracking error:", err);
     return json({ error: "Tracking failed" }, { status: 500 });
   }
 
-  return json(
-    { ok: true },
-    {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
-    }
-  );
+  return json({ ok: true });
 };
 
-// Handle CORS preflight
-export const loader = async ({ request }) => {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
+// GET requests to the tracking endpoint are not supported
+export const loader = async () => {
+  return json({ error: "Method not allowed" }, { status: 405 });
 };
