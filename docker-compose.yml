@@ -13,6 +13,7 @@ services:
       SHOPIFY_APP_URL: ${SHOPIFY_APP_URL}
       SCOPES: read_products,read_themes,write_themes
       NODE_ENV: production
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -34,6 +35,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
@@ -46,6 +48,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 5s
 
 volumes:
   pgdata:
