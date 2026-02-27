@@ -11,6 +11,13 @@ function getRedisClient() {
 
   const redisUrl = process.env.REDIS_URL;
   if (!redisUrl) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "REDIS_URL is required in production. " +
+        "Set REDIS_URL in your environment to enable distributed rate limiting. " +
+        "In-memory fallback is not safe for multi-instance deployments."
+      );
+    }
     redisAvailable = false;
     console.warn(
       "REDIS_URL not configured — falling back to in-memory rate limiter. " +
