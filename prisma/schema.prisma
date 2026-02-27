@@ -29,7 +29,7 @@ model Session {
 // Shops that have installed the app
 model Shop {
   id        Int      @id @default(autoincrement())
-  domain    String   @unique // e.g. "my-store.myshopify.com"
+  domain    String   @unique // e.g. "https://18thdigitechdemo.myshopify.com/"
   name      String?
   timezone  String   @default("UTC")
   currency  String   @default("USD")
