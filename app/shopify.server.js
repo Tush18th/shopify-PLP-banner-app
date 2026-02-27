@@ -45,7 +45,11 @@ const shopify = shopifyApp({
   hooks: {
     afterAuth: async ({ session }) => {
       // Register webhooks after OAuth
-      shopify.registerWebhooks({ session });
+      try {
+        await shopify.registerWebhooks({ session });
+      } catch (err) {
+        console.error(`[afterAuth] Webhook registration failed for ${session.shop}:`, err);
+      }
 
       // Upsert the shop in our database
       await prisma.shop.upsert({

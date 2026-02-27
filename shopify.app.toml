@@ -1,6 +1,9 @@
 name = "PLP Banner Manager"
 client_id = "add953d7ab95cb845f7419cbdddc0158"
-application_url = "https://shopify.dev/apps/default-app-home"
+# DEPLOY: Replace YOUR-APP-DOMAIN.com with your real production domain before
+# running `shopify app deploy`. During `shopify app dev` the CLI auto-updates
+# this via automatically_update_urls_on_dev = true.
+application_url = "https://YOUR-APP-DOMAIN.com"
 embedded = true
 
 [access_scopes]
@@ -8,14 +11,15 @@ scopes = "read_products,read_themes,write_themes"
 
 [auth]
 redirect_urls = [
-  "https://example.com/auth/callback",
-  "https://example.com/auth/shopify/callback",
-  "https://example.com/api/auth/callback",
-  "https://example.com/api/auth"
+  "https://YOUR-APP-DOMAIN.com/auth/callback",
+  "https://YOUR-APP-DOMAIN.com/auth/shopify/callback",
+  "https://YOUR-APP-DOMAIN.com/api/auth/callback",
+  "https://YOUR-APP-DOMAIN.com/api/auth"
 ]
 
 [webhooks]
-api_version = "2026-04"
+# Must match ApiVersion in app/shopify.server.js and extensions/shopify.extension.toml
+api_version = "2024-10"
 
 [[webhooks.subscriptions]]
 topics = ["app/uninstalled"]
@@ -26,12 +30,14 @@ topics = ["shop/update"]
 uri = "/webhooks"
 
 [webhooks.privacy_compliance]
-customer_deletion_url = "https://shopify.dev/apps/default-app-home/webhooks"
-customer_data_request_url = "https://shopify.dev/apps/default-app-home/webhooks"
-shop_deletion_url = "https://shopify.dev/apps/default-app-home/webhooks"
+customer_deletion_url = "https://YOUR-APP-DOMAIN.com/webhooks"
+customer_data_request_url = "https://YOUR-APP-DOMAIN.com/webhooks"
+shop_deletion_url = "https://YOUR-APP-DOMAIN.com/webhooks"
 
 [app_proxy]
-url = "https://shopify.dev/apps/default-app-home/api/storefront"
+# Must be the BASE URL of your app — no path suffix. Shopify appends the
+# request path (/api/storefront/banners, /api/storefront/track) automatically.
+url = "https://YOUR-APP-DOMAIN.com"
 subpath = "plp-banners"
 prefix = "apps"
 

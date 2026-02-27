@@ -201,9 +201,6 @@ export async function getActiveBannersForStorefront(shopDomain, { collectionId, 
 
   const now = new Date();
 
-  // Process scheduled banners first
-  await processScheduledBanners();
-
   const banners = await prisma.banner.findMany({
     where: {
       shopId: shop.id,

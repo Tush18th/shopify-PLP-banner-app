@@ -23,7 +23,12 @@ const ROOT = resolve(__dirname, "..");
 const TOML_PLACEHOLDERS = [
   "YOUR_CLIENT_ID_FROM_PARTNER_DASHBOARD",
   "YOUR_APP_DOMAIN.com",
+  "YOUR-APP-DOMAIN.com",
   "YOUR_DEV_STORE.myshopify.com",
+  // Legacy stubs from the original scaffold — must never reach production
+  "shopify.dev/apps/default-app-home",
+  "example.com/auth",
+  "example.com/api/auth",
 ];
 
 let errors = [];

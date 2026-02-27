@@ -13,10 +13,10 @@ export const loader = async ({ request }) => {
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, host } = useLoaderData();
 
   return (
-    <AppProvider isEmbeddedApp apiKey={apiKey}>
+    <AppProvider isEmbeddedApp apiKey={apiKey} host={host}>
       <NavMenu>
         <Link to="/app" rel="home">Dashboard</Link>
         <Link to="/app/banners">Banners</Link>

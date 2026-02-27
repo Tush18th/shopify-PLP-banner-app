@@ -4,7 +4,7 @@ api_version = "2024-10"
 name = "PLP Banner Injector"
 handle = "plp-banner-injector"
 
-uid = "b7f7ccb7-21dd-0db8-1941-e8dfa39332e556cc397f"
+uid = "3837bd47-396c-46cf-bd69-7fbe3ffc214f"
 
 type = "theme"
 
@@ -44,6 +44,6 @@ type = "theme"
       type = "range"
       name = "Mobile columns"
       min = 1
-      max = 2
+      max = 3
       step = 1
       default = 2
