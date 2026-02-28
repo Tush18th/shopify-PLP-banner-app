@@ -16,6 +16,8 @@ Banners appear as product-like tiles between real products — driving engagemen
 - **Theme App Extension** — Standard Shopify extension for storefront rendering
 - **Polaris Admin UI** — Dashboard, banner list, create/edit form, reports page
 - **CSV Export** — Export analytics data for external reporting
+- **Cron-based Scheduling** — Dedicated CRON_SECRET-protected endpoint for banner lifecycle transitions (no storefront overhead)
+- **Config Validation** — Pre-deploy script that catches placeholder values before they reach production
 
 ## Tech Stack
 
@@ -28,37 +30,39 @@ Banners appear as product-like tiles between real products — driving engagemen
 | Auth | Shopify OAuth (App Remix) |
 | Storefront | Theme App Extension + App Proxy |
 | Deployment | Docker / Render / AWS / Fly.io |
+| API Version | Shopify 2024-10 |
 
 ## Project Structure
 
 ```
 ├── app/
 │   ├── components/
-│   │   └── BannerForm.jsx         # Shared create/edit form
+│   │   └── BannerForm.jsx              # Shared create/edit form
 │   ├── models/
-│   │   ├── analytics.server.js    # Analytics queries
-│   │   ├── banner.server.js       # Banner CRUD + storefront queries
-│   │   └── shop.server.js         # Shop management
+│   │   ├── analytics.server.js         # Analytics queries
+│   │   ├── banner.server.js            # Banner CRUD + storefront queries
+│   │   └── shop.server.js              # Shop management
 │   ├── routes/
-│   │   ├── app._index.jsx         # Dashboard
-│   │   ├── app.banners._index.jsx # Banner list
-│   │   ├── app.banners.new.jsx    # Create banner
-│   │   ├── app.banners.$id.jsx    # Edit banner
-│   │   ├── app.reports.jsx        # Analytics reports
-│   │   ├── app.settings.jsx       # App settings
-│   │   ├── app.jsx                # App layout + nav
-│   │   ├── auth.$.jsx             # Auth callback
-│   │   ├── auth.login/route.jsx   # Login page
-│   │   ├── webhooks.jsx           # Webhook handler
+│   │   ├── app._index.jsx              # Dashboard
+│   │   ├── app.banners._index.jsx      # Banner list
+│   │   ├── app.banners.new.jsx         # Create banner
+│   │   ├── app.banners.$id.jsx         # Edit banner
+│   │   ├── app.reports.jsx             # Analytics reports
+│   │   ├── app.settings.jsx            # App settings
+│   │   ├── app.jsx                     # App layout + nav (App Bridge host)
+│   │   ├── auth.$.jsx                  # Auth callback
+│   │   ├── auth.login/route.jsx        # Login page
+│   │   ├── webhooks.jsx                # Webhook handler
 │   │   ├── api.storefront.banners.jsx  # Public banner API
-│   │   └── api.storefront.track.jsx    # Analytics tracking API
+│   │   ├── api.storefront.track.jsx    # Analytics tracking API
+│   │   └── api.cron.process-banners.jsx  # Cron endpoint for banner scheduling
 │   ├── utils/
-│   │   ├── validation.server.js   # Input validation
-│   │   └── rate-limiter.server.js # Rate limiting
-│   ├── db.server.js               # Prisma client
-│   ├── shopify.server.js          # Shopify app config
-│   ├── entry.server.jsx           # Remix entry
-│   └── root.jsx                   # Root layout
+│   │   ├── validation.server.js        # Input validation
+│   │   └── rate-limiter.server.js      # Rate limiting
+│   ├── db.server.js                    # Prisma client
+│   ├── shopify.server.js               # Shopify app config
+│   ├── entry.server.jsx                # Remix entry
+│   └── root.jsx                        # Root layout
 ├── extensions/
 │   └── plp-banner-extension/
 │       ├── assets/
@@ -67,9 +71,11 @@ Banners appear as product-like tiles between real products — driving engagemen
 │       │   └── banner-injector.liquid  # App embed block
 │       └── shopify.extension.toml
 ├── prisma/
-│   ├── schema.prisma              # Database schema
-│   └── seed.js                    # Seed data
-├── shopify.app.toml               # Shopify app config
+│   ├── schema.prisma                   # Database schema
+│   └── seed.js                         # Seed data
+├── scripts/
+│   └── validate-config.js             # Pre-deploy config validator
+├── shopify.app.toml                    # Shopify app config
 ├── Dockerfile
 ├── package.json
 └── vite.config.js
@@ -105,20 +111,29 @@ cp .env.example .env
 ```
 
 Edit `.env`:
-```
-SHOPIFY_API_KEY=your_api_key
-SHOPIFY_API_SECRET=your_api_secret
+```env
+SHOPIFY_API_KEY=your_api_key_here
+SHOPIFY_API_SECRET=your_api_secret_here
 SCOPES=read_products,read_themes,write_themes
-SHOPIFY_APP_URL=https://your-ngrok-url.ngrok.io
+SHOPIFY_APP_URL=https://your-app-domain.com
 DATABASE_URL=postgresql://user:password@localhost:5432/plp_banner_app
+REDIS_URL=redis://localhost:6379
+CRON_SECRET=<generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
 ```
+
+> **Note:** `CRON_SECRET` protects the `/api/cron/process-banners` endpoint from unauthorized access. Generate a strong random value and set it in both your app environment and your cron scheduler.
 
 ### 4. Configure shopify.app.toml
 
 Update `shopify.app.toml`:
 - Set `client_id` to your API key
-- Set `application_url` to your app URL
+- Replace `YOUR-APP-DOMAIN.com` with your real app domain across all URLs
 - Set `dev_store_url` to your development store
+
+Run the config validator to catch any missed placeholders:
+```bash
+npm run validate
+```
 
 ### 5. Database Setup
 
@@ -158,6 +173,38 @@ In the Shopify Partners dashboard:
    - Sub path: `plp-banners`
    - Proxy URL: `https://your-app-url.com/api/storefront`
 
+### 9. Set Up Cron Job (Production)
+
+The banner scheduler runs at `/api/cron/process-banners`. Call it every 5 minutes from your scheduler with a `Bearer` token:
+
+```
+Authorization: Bearer <CRON_SECRET>
+```
+
+**Render cron job:**
+```
+GET https://your-app-domain.com/api/cron/process-banners
+Headers: Authorization: Bearer <CRON_SECRET>
+Schedule: */5 * * * *
+```
+
+**GitHub Actions:**
+```yaml
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+jobs:
+  process-banners:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://your-app-domain.com/api/cron/process-banners
+```
+
+**AWS EventBridge / CloudWatch Events** and other schedulers work the same way — just call the URL with the `Authorization` header every 5 minutes.
+
 ## Admin Pages
 
 | Page | URL | Description |
@@ -181,40 +228,82 @@ In the Shopify Partners dashboard:
 6. On window resize, column count is rechecked and banners repositioned
 7. Impressions and clicks are tracked via the analytics endpoint
 
+## Banner Scheduling
+
+Banners transition through these states automatically via the cron endpoint:
+
+```
+DRAFT → (manual publish) → SCHEDULED → (start_date reached) → ACTIVE → (end_date reached) → EXPIRED
+ACTIVE → (manual) → PAUSED → (manual) → ACTIVE
+```
+
+The `/api/cron/process-banners` endpoint (called every 5 minutes) handles the `SCHEDULED → ACTIVE` and `ACTIVE → EXPIRED` transitions. This keeps all lifecycle logic out of the storefront request path.
+
+## Configuration Validation
+
+Before deploying, run the built-in config validator to catch placeholder values:
+
+```bash
+npm run validate
+```
+
+This checks:
+- `shopify.app.toml` for leftover `YOUR-APP-DOMAIN.com`, `shopify.dev/…`, or `example.com` stubs
+- All required environment variables are set and non-placeholder
+- `SHOPIFY_APP_URL` starts with `https://`
+
+Exits with code `1` if any issues are found, `0` if all clear. Integrate into your CI pipeline to block broken deployments.
+
 ## Deployment (Production)
+
+### Pre-deployment checklist
+
+```bash
+# 1. Validate no placeholder values remain
+npm run validate
+
+# 2. Run production database migrations
+npx prisma migrate deploy
+
+# 3. Deploy the theme extension
+shopify app deploy
+```
 
 ### Option A: Render
 
 1. Create a new **Web Service** on [Render](https://render.com)
 2. Connect your repository
 3. Set environment: **Docker**
-4. Add environment variables from `.env.example`
-5. Add a PostgreSQL database
-6. Set the `DATABASE_URL` to the Render PostgreSQL connection string
+4. Add environment variables from `.env.example` (including `CRON_SECRET`)
+5. Add a PostgreSQL database and set `DATABASE_URL`
+6. Add a **Cron Job** service calling `/api/cron/process-banners` every 5 minutes with the `Authorization: Bearer <CRON_SECRET>` header
 
 ### Option B: Fly.io
 
 ```bash
 fly launch
-fly secrets set SHOPIFY_API_KEY=xxx SHOPIFY_API_SECRET=xxx DATABASE_URL=xxx
+fly secrets set SHOPIFY_API_KEY=xxx SHOPIFY_API_SECRET=xxx DATABASE_URL=xxx CRON_SECRET=xxx
 fly deploy
 ```
 
 ### Option C: AWS (ECS/Fargate)
 
 1. Build and push Docker image to ECR
-2. Create ECS task definition with environment variables
+2. Create ECS task definition with environment variables (including `CRON_SECRET`)
 3. Set up an ALB with SSL certificate
 4. Configure RDS PostgreSQL instance
 5. Deploy the ECS service
+6. Create a CloudWatch Events rule to call the cron endpoint every 5 minutes
 
 ### Post-Deployment
 
 1. Update `SHOPIFY_APP_URL` to your production domain
-2. Update `shopify.app.toml` with production URLs
-3. Run `npx prisma migrate deploy` against production database
-4. Deploy the theme extension: `shopify app deploy`
-5. Configure the App Proxy URL in Shopify Partners dashboard
+2. Replace `YOUR-APP-DOMAIN.com` in `shopify.app.toml` with your real domain
+3. Run `npm run validate` — must exit 0 before proceeding
+4. Run `npx prisma migrate deploy` against the production database
+5. Deploy the theme extension: `shopify app deploy`
+6. Configure the App Proxy URL in Shopify Partners dashboard
+7. Configure the cron scheduler with `CRON_SECRET`
 
 ### SSL Requirement
 
@@ -235,15 +324,18 @@ The app registers and handles these webhooks:
 | `CUSTOMERS_REDACT` | No-op (no customer data stored) |
 | `SHOP_REDACT` | Deletes all shop data |
 
+Webhook registration failures are caught and logged (non-fatal) so the app continues to start even if a webhook topic is temporarily unavailable.
+
 ## Security
 
 - **HMAC Validation** — App Proxy requests verified via Shopify HMAC signature
 - **Session Encryption** — Managed by `@shopify/shopify-app-remix`
 - **Input Validation** — All API inputs validated server-side
 - **Rate Limiting** — Public endpoints rate-limited (120 req/min per IP)
-- **Webhook Verification** — Handled by Shopify App Remix authenticate.webhook
+- **Webhook Verification** — Handled by Shopify App Remix `authenticate.webhook`
 - **CORS** — Controlled Access-Control headers on public endpoints
 - **XSS Prevention** — HTML/attribute escaping in storefront JS
+- **Cron Protection** — `/api/cron/process-banners` requires `Authorization: Bearer <CRON_SECRET>` header
 
 ## Database Schema
 
@@ -255,6 +347,29 @@ Banner (1) ──── (N) BannerAnalyticsDaily
 ```
 
 See `prisma/schema.prisma` for the full schema definition.
+
+## Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SHOPIFY_API_KEY` | Yes | From Shopify Partners Dashboard |
+| `SHOPIFY_API_SECRET` | Yes | From Shopify Partners Dashboard |
+| `SCOPES` | Yes | OAuth scopes (`read_products,read_themes,write_themes`) |
+| `SHOPIFY_APP_URL` | Yes | Your app's public HTTPS URL |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `REDIS_URL` | Recommended | Redis URL for distributed rate limiting; falls back to in-memory |
+| `CRON_SECRET` | Yes (prod) | Bearer token protecting the cron endpoint |
+| `NODE_ENV` | Yes | `development` or `production` |
+| `PORT` | No | HTTP port (default `3000`) |
+
+## Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start development server with Shopify CLI |
+| `npm run build` | Build for production |
+| `npm run validate` | Validate config — checks for placeholders and missing env vars |
+| `npm run lint` | Run ESLint |
 
 ## License
 
